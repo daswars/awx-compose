@@ -1,0 +1,134 @@
+version: '3.7'
+services:
+
+  web:
+    image: ansible/awx_web:6.1.0
+    container_name: awx_web
+    ports:
+      - "80:8052"
+    networks:
+    - internal
+    hostname: awxweb
+    user: root
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      placement:
+        constraints: [node.hostname == node1]
+    configs:
+      - source: secret_key
+        target: /etc/tower/SECRET_KEY
+      - source: environment
+        target: /etc/tower/conf.d/environment.sh
+      - source: credentials
+        target: /etc/tower/conf.d/credentials.py
+    volumes:
+      - "awx_projects:/var/lib/awx/projects:rw"
+
+  task:
+    image: ansible/awx_task:6.1.0
+    container_name: awx_task
+    networks:
+      - internal
+    hostname: awx
+    user: root
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      placement:
+        constraints: [node.hostname == node1]
+    configs:
+      - source: secret_key
+        target: /etc/tower/SECRET_KEY
+      - source: environment
+        target: /etc/tower/conf.d/environment.sh
+      - source: credentials
+        target: /etc/tower/conf.d/credentials.py
+    volumes:
+      - "awx_projects:/var/lib/awx/projects:rw"
+
+  rabbitmq:
+    image: ansible/awx_rabbitmq:3.7.4
+    container_name: awx_rabbitmq
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      placement:
+        constraints: [node.hostname == node1]
+    networks:
+      - internal
+    environment:
+      RABBITMQ_DEFAULT_VHOST: "awx"
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "awxpass"
+      RABBITMQ_ERLANG_COOKIE: cookiemonster
+
+  memcached:
+    image: "memcached:alpine"
+    container_name: awx_memcached
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      placement:
+        constraints: [node.hostname == node1]
+    networks:
+      - internal
+
+  postgres:
+    image: postgres:9.6
+    container_name: awx_postgres
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      placement:
+        constraints: [node.hostname == node1]
+    volumes:
+      - pg_data:/var/lib/postgresql/data:Z
+    networks:
+      - internal
+    environment:
+      POSTGRES_USER: awx
+      POSTGRES_PASSWORD: awxpass
+      POSTGRES_DB: awx
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+
+networks:
+  internal:
+
+volumes:
+  pg_data:
+  awx_projects:
+
+configs:
+  secret_key:
+    file: ./SECRET_KEY
+  environment:
+    file: ./environment.sh
+  credentials:
+    file: ./credentials.py
