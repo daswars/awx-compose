@@ -13,4 +13,6 @@ docker-compose up -d
 
 For all those who want to use a docker stack, I generated it here.
 
+```
 docker stack deploy -c docker-stack.yml awx --prune
+```
